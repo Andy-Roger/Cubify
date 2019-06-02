@@ -4,20 +4,23 @@ using UnityEngine;
 using UnityEditor;
 
 public class cubify : EditorWindow {
-
+    //cubic resolution
     private int resolution = 10;
     private Object cubifyObject;
 
+    //game object context menu to open Cubify window
     [MenuItem("GameObject/Cubify", false, 10)]
     public static void runCubify() {
         openCubifyWindow();
     }
 
+    //opens Cubify window
     public static void openCubifyWindow() {
         GetWindow<cubify>("Cubify");
         GetWindow<cubify>("Cubify").cubifyObject = Selection.activeObject;
     }
 
+    //Cubify tool window
     void OnGUI() {
         EditorGUILayout.BeginHorizontal();
         cubifyObject = EditorGUILayout.ObjectField(cubifyObject, typeof(Object), true);
@@ -34,11 +37,12 @@ public class cubify : EditorWindow {
         EditorGUILayout.EndHorizontal();
     }
 
+    //cleans up voxel parents one at a time
     void delete() {
-        DestroyImmediate(GameObject.Find("Total Volume"));
         DestroyImmediate(GameObject.Find("SavedVoxelParent"));
     }
 
+    //main method to start voxel generation
     void generate() {
         //get center & size of mesh group
         GameObject cubifyObjectToGameObject = cubifyObject as GameObject;
@@ -63,12 +67,18 @@ public class cubify : EditorWindow {
         GameObject voxelObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
         createVoxelGrid(startLocation, shiftVoxelOffset, voxelObj, totalVolume, voxelSize, maxDimension);
 
-        cubifyObjectToGameObject.GetComponent<cubifyObject>().checkIfMeshesOverlap(Mathf.CeilToInt(Mathf.Pow(resolution, 3)));
+        //add "cubifyObject.cs" to mesh scene instance to detect overlapping voxels
+        cubifyObject cubifyObjectComponent = cubifyObjectToGameObject.GetComponent<cubifyObject>();
+        if (!cubifyObjectComponent)
+            cubifyObjectComponent = cubifyObjectToGameObject.AddComponent<cubifyObject>();
+        cubifyObjectComponent.checkIfMeshesOverlap(Mathf.CeilToInt(Mathf.Pow(resolution, 3)), totalVolumeBoxCol);
+
         //destroy the original voxel
         DestroyImmediate(voxelObj);
         DestroyImmediate(totalVolume);
     }
 
+    //generate voxel grid
     void createVoxelGrid(Vector3 startLocation, Vector3 shiftVoxelOffset, GameObject voxelObj, GameObject totalVolume, Vector3 voxelSize, float maxDimension) {
         for (int x = 0; x < resolution; x++) {
             for (int y = 0; y < resolution; y++) {
