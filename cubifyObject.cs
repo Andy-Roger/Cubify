@@ -1,9 +1,7 @@
 ﻿using UnityEngine;
 
-//Note place this on object that you want to voxelize, then open the "Cubify" window on the GameObject to use
 public class cubifyObject : MonoBehaviour {
-
-    public void checkIfMeshesOverlap(int sqrResolution) {
+    public void checkIfMeshesOverlap(int sqrResolution, BoxCollider totalVolumeCollider) {
         Collider[] neighbours;
         var thisCollider = GetComponent<Collider>();
         neighbours = new Collider[sqrResolution];
@@ -17,8 +15,6 @@ public class cubifyObject : MonoBehaviour {
         GameObject saveVoxelsGameObject = new GameObject("SavedVoxelParent");
         Transform saveVoxelsParent = saveVoxelsGameObject.transform;
         saveVoxelsParent.transform.position = transform.position;
-
-        Collider totalVolumeCollider = GameObject.Find("Total Volume").GetComponent<BoxCollider>();
 
         for (int i = 0; i < count; ++i) {
             var collider = neighbours[i];
