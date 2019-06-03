@@ -2,7 +2,8 @@
 Converts a mesh into a voxel mesh
 
 How to use:
-- Right click on a GameObject in the Hierarchy
+- Create a game object with a mesh collider that matches the mesh
+- Right click on the GameObject in the Hierarchy
 - Select "Cubify"
 - The Cubify window will appear
 - Choose a cubic resolution e.g. 10
