@@ -16,6 +16,7 @@ public class cubifyObject : MonoBehaviour {
         Transform saveVoxelsParent = saveVoxelsGameObject.transform;
         saveVoxelsParent.transform.position = transform.position;
 
+        //finds all voxels that overlap with the mesh
         for (int i = 0; i < count; ++i) {
             var collider = neighbours[i];
 
