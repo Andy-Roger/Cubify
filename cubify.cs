@@ -5,7 +5,7 @@ using UnityEditor;
 
 public class cubify : EditorWindow {
     //cubic resolution
-    private int resolution = 10;
+    private int resolution = 20;
     private Object cubifyObject;
 
     //game object context menu to open Cubify window
@@ -22,19 +22,33 @@ public class cubify : EditorWindow {
 
     //Cubify tool window
     void OnGUI() {
+        double? timeElapsed = null;
         EditorGUILayout.BeginHorizontal();
         cubifyObject = EditorGUILayout.ObjectField(cubifyObject, typeof(Object), true);
+        //cast Object to gameObject
+        GameObject cubifyObjectToGameObject = cubifyObject as GameObject;
         EditorGUILayout.EndHorizontal();
 
         EditorGUILayout.BeginHorizontal();
+        EditorGUILayout.LabelField("Cubic Resolution");
         resolution = EditorGUILayout.IntField(resolution);
         if (GUILayout.Button("Generate")) {
-            generate();
+            if (!cubifyObjectToGameObject.GetComponent<Collider>()) {
+                Debug.LogError("Add a Collider to this GameObject before generating");
+                return;
+            }
+            var stopWatch = System.Diagnostics.Stopwatch.StartNew();
+            generate(cubifyObjectToGameObject);
+
+            timeElapsed = stopWatch.Elapsed.TotalSeconds;
         }
         if (GUILayout.Button("Delete")) {
             delete();
         }
         EditorGUILayout.EndHorizontal();
+
+        if(timeElapsed != null)
+            Debug.Log("Voxel generation took " + timeElapsed + " sec.");
     }
 
     //cleans up voxel parents one at a time
@@ -43,13 +57,13 @@ public class cubify : EditorWindow {
     }
 
     //main method to start voxel generation
-    void generate() {
+    void generate(GameObject cubifyObjectToGameObject) {
         //get center & size of mesh group
-        GameObject cubifyObjectToGameObject = cubifyObject as GameObject;
-        Vector3 size = getBounds(cubifyObjectToGameObject.transform).size;
-        Vector3 center = getBounds(cubifyObjectToGameObject.transform).center;
+        var bounds = getBounds(cubifyObjectToGameObject.transform);
+        Vector3 size = bounds.size;
+        Vector3 center = bounds.center;
 
-        //get longest side and divide it into equal parts of that length
+        //get longest side
         float maxDimension = Mathf.Max(Mathf.Max(size.x, size.y), size.z);
         
         //generate equally dimensioned box for creating a voxel grid inside
@@ -73,9 +87,10 @@ public class cubify : EditorWindow {
             cubifyObjectComponent = cubifyObjectToGameObject.AddComponent<cubifyObject>();
         cubifyObjectComponent.checkIfMeshesOverlap(Mathf.CeilToInt(Mathf.Pow(resolution, 3)), totalVolumeBoxCol);
 
-        //destroy the original voxel
+        //clean up the scene objects after generation
         DestroyImmediate(voxelObj);
         DestroyImmediate(totalVolume);
+        DestroyImmediate(cubifyObjectComponent);
     }
 
     //generate voxel grid
@@ -93,7 +108,7 @@ public class cubify : EditorWindow {
         }
     }
 
-    //gets bounding volume of model
+    //grow a volume box over the total mesh
     public static Bounds getBounds(Transform loadedTransform) {
         Bounds bounds = new Bounds(getGroupedMeshCenter(loadedTransform), Vector3.zero); //center the bounds object on the model
         foreach (Renderer renderer in loadedTransform.GetComponentsInChildren<Renderer>()) //iterates over all child renderers and adjusts the bounds to fit over all of them
@@ -101,7 +116,7 @@ public class cubify : EditorWindow {
         return bounds;
     }
 
-    // gets average center point for bounds, used as a point to grow bounds outwards from
+    // gets average center point for bounds to center the voxel grid
     private static Vector3 getGroupedMeshCenter(Transform groupedMeshParent) {
         Vector3 vertSum = Vector3.zero;
         int count = 0;
