@@ -6,6 +6,13 @@ using UnityEditor;
 public class cubify : EditorWindow {
     //cubic resolution
     private int resolution = 20;
+    public enum VoxelTypes {
+        Cube = 0,
+        Sphere = 1,
+        Cylinder = 2,
+        Capsule
+    }
+    public VoxelTypes voxelType;
     private Object cubifyObject;
 
     //game object context menu to open Cubify window
@@ -23,12 +30,19 @@ public class cubify : EditorWindow {
     //Cubify tool window
     void OnGUI() {
         double? timeElapsed = null;
+
+        //pass in the object with mesh that we want to cubify
         EditorGUILayout.BeginHorizontal();
         cubifyObject = EditorGUILayout.ObjectField(cubifyObject, typeof(Object), true);
-        //cast Object to gameObject
         GameObject cubifyObjectToGameObject = cubifyObject as GameObject;
         EditorGUILayout.EndHorizontal();
 
+        //voxel type menu
+        EditorGUILayout.BeginHorizontal();
+        voxelType = (VoxelTypes)EditorGUILayout.EnumPopup("Voxel Type:", voxelType);
+        EditorGUILayout.EndHorizontal();
+
+        //cubic resolution, generate, delete
         EditorGUILayout.BeginHorizontal();
         EditorGUILayout.LabelField("Cubic Resolution");
         resolution = EditorGUILayout.IntField(resolution);
@@ -38,7 +52,7 @@ public class cubify : EditorWindow {
                 return;
             }
             var stopWatch = System.Diagnostics.Stopwatch.StartNew();
-            generate(cubifyObjectToGameObject);
+            generate(cubifyObjectToGameObject, getVoxelType(voxelType));
 
             timeElapsed = stopWatch.Elapsed.TotalSeconds;
         }
@@ -57,7 +71,7 @@ public class cubify : EditorWindow {
     }
 
     //main method to start voxel generation
-    void generate(GameObject cubifyObjectToGameObject) {
+    void generate(GameObject cubifyObjectToGameObject, PrimitiveType voxelType) {
         //get center & size of mesh group
         var bounds = getBounds(cubifyObjectToGameObject.transform);
         Vector3 size = bounds.size;
@@ -78,7 +92,7 @@ public class cubify : EditorWindow {
         Vector3 shiftVoxelOffset = voxelSize / 2;
 
         //create voxel grid
-        GameObject voxelObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        GameObject voxelObj = GameObject.CreatePrimitive(voxelType);
         createVoxelGrid(startLocation, shiftVoxelOffset, voxelObj, totalVolume, voxelSize, maxDimension);
 
         //add "cubifyObject.cs" to mesh scene instance to detect overlapping voxels
@@ -132,5 +146,21 @@ public class cubify : EditorWindow {
                     count++;
                 }
         return groupedMeshParent.TransformPoint(vertSum /= count);
+    }
+
+    //this method acts as a filter of primitive types, dont want quads and planes
+    PrimitiveType getVoxelType(VoxelTypes option) {
+        switch (option) {
+            case VoxelTypes.Cube:
+                return PrimitiveType.Cube;
+            case VoxelTypes.Sphere:
+                return PrimitiveType.Sphere;
+            case VoxelTypes.Cylinder:
+                return PrimitiveType.Cylinder;
+            case VoxelTypes.Capsule:
+                return PrimitiveType.Capsule;
+            default:
+                return PrimitiveType.Cube;
+        }
     }
 }
