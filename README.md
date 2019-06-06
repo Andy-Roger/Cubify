@@ -1,5 +1,6 @@
 # Cubify
 Converts a mesh into a voxel mesh
+
 How to install:
 - cd into your unity project/Assets folder
 - Then run ==> git clone https://github.com/Andy-Roger/Cubify.git
