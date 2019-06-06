@@ -15,7 +15,7 @@ How to use:
 
 Notes:
 - Right now, only single mesh objects are supported/tested
-- Cubify uses the object collider component to generate the voxel mesh, so for best results use a mesh collider that uses mesh of the object
+- Cubify uses the object collider component to generate the voxel mesh, so for best results use a mesh collider that uses the mesh of the object
 
 ![alt text](https://github.com/Andy-Roger/Images/blob/master/CubifyImage.png)
 Credit to Skull model: https://sketchfab.com/3d-models/skull-downloadable-1a9db900738d44298b0bc59f68123393
