@@ -10,10 +10,12 @@ public class cubify : EditorWindow {
         Cube = 0,
         Sphere = 1,
         Cylinder = 2,
-        Capsule
+        Capsule = 3,
+        Custom
     }
     public VoxelTypes voxelType;
-    private Object cubifyObject;
+    private GameObject cubifyObject;
+    private GameObject customVoxel;
 
     //game object context menu to open Cubify window
     [MenuItem("GameObject/Cubify", false, 10)]
@@ -24,7 +26,7 @@ public class cubify : EditorWindow {
     //opens Cubify window
     public static void openCubifyWindow() {
         GetWindow<cubify>("Cubify");
-        GetWindow<cubify>("Cubify").cubifyObject = Selection.activeObject;
+        GetWindow<cubify>("Cubify").cubifyObject = (GameObject)Selection.activeObject;
     }
 
     //Cubify tool window
@@ -33,8 +35,7 @@ public class cubify : EditorWindow {
 
         //pass in the object with mesh that we want to cubify
         EditorGUILayout.BeginHorizontal();
-        cubifyObject = EditorGUILayout.ObjectField(cubifyObject, typeof(Object), true);
-        GameObject cubifyObjectToGameObject = cubifyObject as GameObject;
+        cubifyObject = (GameObject)EditorGUILayout.ObjectField(cubifyObject, typeof(Object), true);
         EditorGUILayout.EndHorizontal();
 
         //voxel type menu
@@ -42,17 +43,28 @@ public class cubify : EditorWindow {
         voxelType = (VoxelTypes)EditorGUILayout.EnumPopup("Voxel Type:", voxelType);
         EditorGUILayout.EndHorizontal();
 
+        //if custom voxel type, show custom voxel field
+        if(voxelType == VoxelTypes.Custom) {
+            EditorGUILayout.BeginHorizontal();
+            customVoxel = (GameObject)EditorGUILayout.ObjectField(customVoxel, typeof(Object), true);
+            EditorGUILayout.EndHorizontal();
+            if(customVoxel != null)
+                if (!customVoxel.GetComponent<Collider>()) {
+                    EditorGUILayout.HelpBox("Add a mesh collider to this object before generating.", MessageType.Warning);
+                }
+        }
+
         //cubic resolution, generate, delete
         EditorGUILayout.BeginHorizontal();
         EditorGUILayout.LabelField("Cubic Resolution");
         resolution = EditorGUILayout.IntField(resolution);
         if (GUILayout.Button("Generate")) {
-            if (!cubifyObjectToGameObject.GetComponent<Collider>()) {
+            if (!cubifyObject.GetComponent<Collider>()) {
                 Debug.LogError("Add a Collider to this GameObject before generating");
                 return;
             }
             var stopWatch = System.Diagnostics.Stopwatch.StartNew();
-            generate(cubifyObjectToGameObject, getVoxelType(voxelType));
+            generate(cubifyObject, getVoxelType(voxelType));
 
             timeElapsed = stopWatch.Elapsed.TotalSeconds;
         }
@@ -71,9 +83,9 @@ public class cubify : EditorWindow {
     }
 
     //main method to start voxel generation
-    void generate(GameObject cubifyObjectToGameObject, PrimitiveType voxelType) {
+    void generate(GameObject cubifyObject, GameObject voxelObj) {
         //get center & size of mesh group
-        var bounds = getBounds(cubifyObjectToGameObject.transform);
+        var bounds = getBounds(cubifyObject.transform);
         Vector3 size = bounds.size;
         Vector3 center = bounds.center;
 
@@ -92,17 +104,16 @@ public class cubify : EditorWindow {
         Vector3 shiftVoxelOffset = voxelSize / 2;
 
         //create voxel grid
-        GameObject voxelObj = GameObject.CreatePrimitive(voxelType);
         createVoxelGrid(startLocation, shiftVoxelOffset, voxelObj, totalVolume, voxelSize, maxDimension);
 
         //add "cubifyObject.cs" to mesh scene instance to detect overlapping voxels
-        cubifyObject cubifyObjectComponent = cubifyObjectToGameObject.GetComponent<cubifyObject>();
+        cubifyObject cubifyObjectComponent = cubifyObject.GetComponent<cubifyObject>();
         if (!cubifyObjectComponent)
-            cubifyObjectComponent = cubifyObjectToGameObject.AddComponent<cubifyObject>();
+            cubifyObjectComponent = cubifyObject.AddComponent<cubifyObject>();
         cubifyObjectComponent.checkIfMeshesOverlap(Mathf.CeilToInt(Mathf.Pow(resolution, 3)), totalVolumeBoxCol);
 
         //clean up the scene objects after generation
-        DestroyImmediate(voxelObj);
+        if(voxelType != VoxelTypes.Custom) DestroyImmediate(voxelObj);
         DestroyImmediate(totalVolume);
         DestroyImmediate(cubifyObjectComponent);
     }
@@ -149,18 +160,20 @@ public class cubify : EditorWindow {
     }
 
     //this method acts as a filter of primitive types, dont want quads and planes
-    PrimitiveType getVoxelType(VoxelTypes option) {
+    GameObject getVoxelType(VoxelTypes option) {
         switch (option) {
             case VoxelTypes.Cube:
-                return PrimitiveType.Cube;
+                return GameObject.CreatePrimitive(PrimitiveType.Cube);
             case VoxelTypes.Sphere:
-                return PrimitiveType.Sphere;
+                return GameObject.CreatePrimitive(PrimitiveType.Sphere);
             case VoxelTypes.Cylinder:
-                return PrimitiveType.Cylinder;
+                return GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             case VoxelTypes.Capsule:
-                return PrimitiveType.Capsule;
+                return GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            case VoxelTypes.Custom:
+                return customVoxel;
             default:
-                return PrimitiveType.Cube;
+                return GameObject.CreatePrimitive(PrimitiveType.Cube);
         }
     }
 }
