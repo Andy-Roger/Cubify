@@ -35,17 +35,19 @@ public class cubify : EditorWindow {
 
         //pass in the object with mesh that we want to cubify
         EditorGUILayout.BeginHorizontal();
+        EditorGUILayout.LabelField("GameObject to Cubify");
         cubifyObject = (GameObject)EditorGUILayout.ObjectField(cubifyObject, typeof(Object), true);
         EditorGUILayout.EndHorizontal();
 
         //voxel type menu
         EditorGUILayout.BeginHorizontal();
-        voxelType = (VoxelTypes)EditorGUILayout.EnumPopup("Voxel Type:", voxelType);
+        voxelType = (VoxelTypes)EditorGUILayout.EnumPopup("Voxel Type", voxelType);
         EditorGUILayout.EndHorizontal();
 
         //if custom voxel type, show custom voxel field
         if(voxelType == VoxelTypes.Custom) {
             EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("Custom Voxel");
             customVoxel = (GameObject)EditorGUILayout.ObjectField(customVoxel, typeof(Object), true);
             EditorGUILayout.EndHorizontal();
             if(customVoxel != null)
