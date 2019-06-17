@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
+using System.Linq;
 
 public class cubify : EditorWindow {
     //cubic resolution
@@ -17,6 +18,9 @@ public class cubify : EditorWindow {
     private GameObject cubifyObject;
     private GameObject customVoxel;
 
+    private bool addVoxelsAtVerts = false;
+    public float voxelSize = 0.01f;
+
     //game object context menu to open Cubify window
     [MenuItem("GameObject/Cubify", false, 10)]
     public static void runCubify() {
@@ -29,54 +33,19 @@ public class cubify : EditorWindow {
         GetWindow<cubify>("Cubify").cubifyObject = (GameObject)Selection.activeObject;
     }
 
-    //Cubify tool window
     void OnGUI() {
-        double? timeElapsed = null;
-
         //pass in the object with mesh that we want to cubify
-        EditorGUILayout.BeginHorizontal();
-        EditorGUILayout.LabelField("GameObject to Cubify");
-        cubifyObject = (GameObject)EditorGUILayout.ObjectField(cubifyObject, typeof(Object), true);
-        EditorGUILayout.EndHorizontal();
-
+        showGameObjectToCubify();
         //voxel type menu
-        EditorGUILayout.BeginHorizontal();
-        voxelType = (VoxelTypes)EditorGUILayout.EnumPopup("Voxel Type", voxelType);
-        EditorGUILayout.EndHorizontal();
-
+        showVoxelSelector();
         //if custom voxel type, show custom voxel field
-        if(voxelType == VoxelTypes.Custom) {
-            EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField("Custom Voxel");
-            customVoxel = (GameObject)EditorGUILayout.ObjectField(customVoxel, typeof(Object), true);
-            EditorGUILayout.EndHorizontal();
-            if(customVoxel != null)
-                if (!customVoxel.GetComponent<Collider>()) {
-                    EditorGUILayout.HelpBox("Add a mesh collider to this object before generating.", MessageType.Warning);
-                }
-        }
-
-        //cubic resolution, generate, delete
-        EditorGUILayout.BeginHorizontal();
-        EditorGUILayout.LabelField("Cubic Resolution");
-        resolution = EditorGUILayout.IntField(resolution);
-        if (GUILayout.Button("Generate")) {
-            if (!cubifyObject.GetComponent<Collider>()) {
-                Debug.LogError("Add a Collider to this GameObject before generating");
-                return;
-            }
-            var stopWatch = System.Diagnostics.Stopwatch.StartNew();
-            generate(cubifyObject, getVoxelType(voxelType));
-
-            timeElapsed = stopWatch.Elapsed.TotalSeconds;
-        }
-        if (GUILayout.Button("Delete")) {
-            delete();
-        }
-        EditorGUILayout.EndHorizontal();
-
-        if(timeElapsed != null)
-            Debug.Log("Voxel generation took " + timeElapsed + " sec.");
+        showCustomVoxelFields();
+        //show the cubify at verts fields
+        showGenerateFromVerts();
+        //cubic resolution
+        showCubicResolutionField();
+        //generate, delete
+        showButtons();
     }
 
     //cleans up voxel parents one at a time
@@ -93,7 +62,7 @@ public class cubify : EditorWindow {
 
         //get longest side
         float maxDimension = Mathf.Max(Mathf.Max(size.x, size.y), size.z);
-        
+
         //generate equally dimensioned box for creating a voxel grid inside
         var totalVolume = new GameObject("Total Volume");
         BoxCollider totalVolumeBoxCol = totalVolume.AddComponent<BoxCollider>();
@@ -106,7 +75,7 @@ public class cubify : EditorWindow {
         Vector3 shiftVoxelOffset = voxelSize / 2;
 
         //create voxel grid
-        createVoxelGrid(startLocation, shiftVoxelOffset, voxelObj, totalVolume, voxelSize, maxDimension);
+        createVoxelsFromGrid(startLocation, shiftVoxelOffset, voxelObj, totalVolume, voxelSize, maxDimension);
 
         //add "cubifyObject.cs" to mesh scene instance to detect overlapping voxels
         cubifyObject cubifyObjectComponent = cubifyObject.GetComponent<cubifyObject>();
@@ -115,13 +84,13 @@ public class cubify : EditorWindow {
         cubifyObjectComponent.checkIfMeshesOverlap(Mathf.CeilToInt(Mathf.Pow(resolution, 3)), totalVolumeBoxCol);
 
         //clean up the scene objects after generation
-        if(voxelType != VoxelTypes.Custom) DestroyImmediate(voxelObj);
+        if (voxelType != VoxelTypes.Custom) DestroyImmediate(voxelObj);
         DestroyImmediate(totalVolume);
         DestroyImmediate(cubifyObjectComponent);
     }
 
     //generate voxel grid
-    void createVoxelGrid(Vector3 startLocation, Vector3 shiftVoxelOffset, GameObject voxelObj, GameObject totalVolume, Vector3 voxelSize, float maxDimension) {
+    void createVoxelsFromGrid(Vector3 startLocation, Vector3 shiftVoxelOffset, GameObject voxelObj, GameObject totalVolume, Vector3 voxelSize, float maxDimension) {
         for (int x = 0; x < resolution; x++) {
             for (int y = 0; y < resolution; y++) {
                 for (int z = 0; z < resolution; z++) {
@@ -133,6 +102,35 @@ public class cubify : EditorWindow {
                 }
             }
         }
+    }
+
+    //normalize vertice points to a grid and add voxels
+    void generateVoxelFromVerts(GameObject voxelObj) {
+        GameObject saveVoxelsGameObject = new GameObject("SavedVoxelParent");
+        Transform saveVoxelsParent = saveVoxelsGameObject.transform;
+
+        voxelObj.transform.localScale = Vector3.one * voxelSize;
+        Vector3[] verts = cubifyObject.GetComponent<MeshFilter>().mesh.vertices;
+        List<Vector3> gridPoses = new List<Vector3>();
+
+        for (int i = 0; i < verts.Length; i++) {
+            Vector3 vertexWorldPos = cubifyObject.transform.TransformPoint(verts[i]);
+            float explodeAmount = 100; //use this perameter to inflate voxel mesh: bigger number = bigger voxel mesh
+            Vector3 pos = vertexWorldPos + ((vertexWorldPos - cubifyObject.transform.position) / explodeAmount);
+
+            float newX = Mathf.Round(pos.x / voxelSize) * voxelSize;
+            float newY = Mathf.Round(pos.y / voxelSize) * voxelSize;
+            float newZ = Mathf.Round(pos.z / voxelSize) * voxelSize;
+            gridPoses.Add(new Vector3(newX, newY, newZ));
+        }
+
+        gridPoses = gridPoses.Distinct().ToList(); //remove verts that snapped to the same grid pos as another
+
+        for (int i = 0; i < gridPoses.Count; i++) {
+            var newVoxel = Instantiate(voxelObj, gridPoses[i], Quaternion.identity, null);
+            newVoxel.transform.parent = saveVoxelsParent;
+        }
+        DestroyImmediate(voxelObj); //destroy original voxel
     }
 
     //grow a volume box over the total mesh
@@ -177,5 +175,78 @@ public class cubify : EditorWindow {
             default:
                 return GameObject.CreatePrimitive(PrimitiveType.Cube);
         }
+    }
+
+    void showGameObjectToCubify() {
+        EditorGUILayout.BeginHorizontal();
+        EditorGUILayout.LabelField("GameObject to Cubify");
+        cubifyObject = (GameObject)EditorGUILayout.ObjectField(cubifyObject, typeof(Object), true);
+        EditorGUILayout.EndHorizontal();
+    }
+
+    void showVoxelSelector() {
+        EditorGUILayout.BeginHorizontal();
+        voxelType = (VoxelTypes)EditorGUILayout.EnumPopup("Voxel Type", voxelType);
+        EditorGUILayout.EndHorizontal();
+    }
+
+    void showCustomVoxelFields() {
+        if (voxelType == VoxelTypes.Custom) {
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("Custom Voxel");
+            customVoxel = (GameObject)EditorGUILayout.ObjectField(customVoxel, typeof(Object), true);
+            EditorGUILayout.EndHorizontal();
+            if (customVoxel != null)
+                if (!customVoxel.GetComponent<Collider>()) {
+                    EditorGUILayout.HelpBox("Add a mesh collider to this object before generating.", MessageType.Warning);
+                }
+        }
+    }
+
+    void showGenerateFromVerts() {
+        EditorGUILayout.BeginHorizontal();
+        addVoxelsAtVerts = EditorGUILayout.Toggle("Generate at verticies ", addVoxelsAtVerts);
+        EditorGUILayout.EndHorizontal();     
+    }
+
+    void showCubicResolutionField() {
+        EditorGUILayout.BeginHorizontal();
+        EditorGUILayout.LabelField("Cubic Resolution");
+        resolution = EditorGUILayout.IntField(resolution);
+        EditorGUILayout.EndHorizontal();
+    }
+
+    void showButtons() {
+        EditorGUILayout.BeginHorizontal();
+        double? timeElapsed = null;
+
+        if (GUILayout.Button("Generate")) {
+            if (!cubifyObject.GetComponent<Collider>()) {
+                Debug.LogError("Add a Collider to this GameObject before generating");
+                return;
+            }
+            var stopWatch = System.Diagnostics.Stopwatch.StartNew();
+
+
+
+
+            if (addVoxelsAtVerts)
+                generateVoxelFromVerts(getVoxelType(voxelType));
+            else
+                generate(cubifyObject, getVoxelType(voxelType));
+
+
+
+
+
+
+            timeElapsed = stopWatch.Elapsed.TotalSeconds;
+        }
+        if (GUILayout.Button("Delete")) {
+            delete();
+        }
+        if (timeElapsed != null)
+            Debug.Log("Voxel generation took " + timeElapsed + " sec.");
+        EditorGUILayout.EndHorizontal();
     }
 }
