@@ -19,7 +19,7 @@ public class cubify : EditorWindow {
     private GameObject customVoxel;
 
     private bool addVoxelsAtVerts = false;
-    public float voxelSize = 0.01f;
+    private float voxelSize = 0.1f;
 
     //game object context menu to open Cubify window
     [MenuItem("GameObject/Cubify", false, 10)]
@@ -106,10 +106,11 @@ public class cubify : EditorWindow {
 
     //normalize vertice points to a grid and add voxels
     void generateVoxelFromVerts(GameObject voxelObj) {
+        voxelSize = 2f / resolution;      //20 * 0.005 = 0.01
+
         GameObject saveVoxelsGameObject = new GameObject("SavedVoxelParent");
         Transform saveVoxelsParent = saveVoxelsGameObject.transform;
 
-        voxelObj.transform.localScale = Vector3.one * voxelSize;
         Vector3[] verts = cubifyObject.GetComponent<MeshFilter>().mesh.vertices;
         List<Vector3> gridPoses = new List<Vector3>();
 
@@ -127,10 +128,10 @@ public class cubify : EditorWindow {
         gridPoses = gridPoses.Distinct().ToList(); //remove verts that snapped to the same grid pos as another
 
         for (int i = 0; i < gridPoses.Count; i++) {
-            var newVoxel = Instantiate(voxelObj, gridPoses[i], Quaternion.identity, null);
-            newVoxel.transform.parent = saveVoxelsParent;
+            var newVoxel = Instantiate(voxelObj, gridPoses[i], Quaternion.identity, saveVoxelsParent);
+            newVoxel.transform.localScale = Vector3.one * voxelSize;
         }
-        DestroyImmediate(voxelObj); //destroy original voxel
+        if (voxelType != VoxelTypes.Custom) DestroyImmediate(voxelObj); //destroy original voxel
     }
 
     //grow a volume box over the total mesh
@@ -205,7 +206,8 @@ public class cubify : EditorWindow {
 
     void showGenerateFromVerts() {
         EditorGUILayout.BeginHorizontal();
-        addVoxelsAtVerts = EditorGUILayout.Toggle("Generate at verticies ", addVoxelsAtVerts);
+        EditorGUILayout.LabelField("Generate at verticies (Fast)");
+        addVoxelsAtVerts = EditorGUILayout.Toggle("", addVoxelsAtVerts);
         EditorGUILayout.EndHorizontal();     
     }
 
@@ -227,18 +229,10 @@ public class cubify : EditorWindow {
             }
             var stopWatch = System.Diagnostics.Stopwatch.StartNew();
 
-
-
-
             if (addVoxelsAtVerts)
                 generateVoxelFromVerts(getVoxelType(voxelType));
             else
                 generate(cubifyObject, getVoxelType(voxelType));
-
-
-
-
-
 
             timeElapsed = stopWatch.Elapsed.TotalSeconds;
         }
