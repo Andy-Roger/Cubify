@@ -18,7 +18,7 @@ public class cubify : EditorWindow {
     private GameObject cubifyObject;
     private GameObject customVoxel;
 
-    private bool addVoxelsAtVerts = false;
+    private bool addVoxelsAtVerts = true;
     private float voxelSize = 0.1f;
 
     //game object context menu to open Cubify window
